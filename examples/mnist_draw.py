@@ -32,8 +32,7 @@ NUM_EPOCHS = 1000
 DIMZ = 100
 GLIMPSES = 64
 ENC_DEC_SIZE = 256
-LOAD_BINARIZED = False
-USE_Y = True
+USE_Y = False
 N_CLASSES = 10
 
 def _load_data(url=DATA_URL, filename=DATA_FILENAME):
@@ -53,26 +52,13 @@ def _load_data(url=DATA_URL, filename=DATA_FILENAME):
     with gzip.open(filename, 'rb') as f:
         return pickle_load(f, encoding='latin-1')
 
+print "Loading binarized data"
+data = np.load('mnist_binarized.npz')
+X_train = data['X_train']
+X_valid = data['X_valid']
+X_test = data['X_test']
+print ""
 
-if LOAD_BINARIZED:
-    print "Loading binarized data"
-    data = np.load('mnist_binarized.npz')
-    X_train = data['X_train']
-    X_valid = data['X_valid']
-    X_test = data['X_test']
-    print ""
-else:
-    print "Loading Normal data"
-    def load_data():
-        data = _load_data()
-        X_train, y_train = data[0]
-        X_valid, y_valid = data[1]
-        X_test, y_test = data[2]
-
-        return X_train.astype('float32'), y_train.astype('float32'), \
-               X_valid.astype('float32'), y_valid.astype('float32'),\
-               X_test.astype('float32'), y_test.astype('float32')
-    X_train, y_train, X_valid, y_valid, X_test, y_test = load_data()
 
 N_SAMPLES_TRAIN, N_FEATURES = X_train.shape
 N_SAMPLES_VAL, _ = X_valid.shape
@@ -83,23 +69,6 @@ for row in xx:
     for col in row:
         print col,
     print ""
-
-import scipy
-def image_resize(img_batch):
-    max_size = 2
-    out_img, out_shp = [],[]
-    for idx in range(img_batch.shape[0]):
-        img = img_batch[idx]
-        arr_out = np.zeros((2*28,2*28))
-        size = float(np.random.uniform(low=1, high=max_size, size=None))
-        img_resize = scipy.misc.imresize(img.reshape(28,28), size=size, interp='nearest')
-        a,b = img_resize.shape
-        arr_out[:a,:b] = img_resize
-        arr_out = arr_out.reshape(-1)
-        out_img.append(arr_out.astype('float32'))
-        out_shp.append(np.array([a, b]).astype('float32'))
-    return np.vstack(out_img), np.vstack(out_shp)
-
 
 
 # build model
