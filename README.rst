@@ -1,10 +1,13 @@
 DRAW implmentation
 =======
-Adds additional models to the Lasagne framework. Lasagne
-(github.com/benanne/Lasagne)
+Implementation of the draw network in Lasagne (https://github.com/benanne/Lasagne)
 
 
 
+The Read/write operation is based on https://github.com/jbornschein/draw/tree/master/draw
+
+
+This is work in progress and is poorly documented
 
 
 
