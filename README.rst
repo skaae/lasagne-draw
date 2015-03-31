@@ -1,4 +1,4 @@
-DRAW implmentation
+DRAW implmentation [Gregor 2015]
 =======
 Implementation of the draw network in Lasagne (https://github.com/benanne/Lasagne)
 
@@ -8,6 +8,14 @@ The Read/write operation is based on https://github.com/jbornschein/draw/tree/ma
 
 
 This is work in progress and is poorly documented
+
+
+
+.. image:: https://raw.githubusercontent.com/skaae/lasagne-draw/master/animaion.gif
+    :alt: DRAW animation
+    :width: 679
+    :height: 781
+    :align: center
 
 
 
