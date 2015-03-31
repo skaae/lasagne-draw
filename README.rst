@@ -10,6 +10,7 @@ The Read/write operation is based on https://github.com/jbornschein/draw/tree/ma
 This is work in progress and is poorly documented
 
 
+Animation of the DRAW network reconstructing images.
 
 .. image:: https://raw.githubusercontent.com/skaae/lasagne-draw/master/animaion.gif
     :alt: DRAW animation
