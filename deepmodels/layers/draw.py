@@ -697,7 +697,7 @@ class DrawLayer(Layer):
 
         ones = T.ones((n_digits,1))
         if theano.config.compute_test_value is 'off':
-            z_samples = _srng.uniform((self.glimpses,n_digits,self.dimz))
+            z_samples = _srng.normal((self.glimpses,n_digits,self.dimz))
         else:
             print("lstm.py: is not using random generator")
             z_samples = T.ones((self.glimpses,self.dimz), theano.config.floatX) * 0.3
