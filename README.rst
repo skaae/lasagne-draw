@@ -10,7 +10,8 @@ The Read/write operation is based on https://github.com/jbornschein/draw/tree/ma
 This is work in progress and is poorly documented
 
 
-Animation of the DRAW network reconstructing images.
+Animation of the DRAW network reconstructing images. Modelling p(x).
+
 
 .. image:: https://raw.githubusercontent.com/skaae/lasagne-draw/master/animaion.gif
     :alt: DRAW animation
@@ -18,6 +19,15 @@ Animation of the DRAW network reconstructing images.
     :height: 781
     :align: center
 
+
+Animation of reconstructing images modelling p(x,y). The two first rows generate
+0's, next two rows 1's etc.
+
+.. image:: https://raw.githubusercontent.com/skaae/lasagne-draw/master/animaion_cond.gif
+    :alt: DRAW animation
+    :width: 679
+    :height: 781
+    :align: center
 
 
 Install
