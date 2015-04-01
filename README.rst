@@ -21,7 +21,7 @@ Animation of the DRAW network reconstructing images. Modelling p(x).
 
 
 Animation of reconstructing images modelling p(x,y). The two first rows generate
-0's, next two rows 1's etc.
+0's, next two rows 1's etc. The model is not fully converged
 
 .. image:: https://raw.githubusercontent.com/skaae/lasagne-draw/master/animaion_cond.gif
     :alt: DRAW animation
