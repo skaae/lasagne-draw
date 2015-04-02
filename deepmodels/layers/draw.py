@@ -18,12 +18,20 @@ __all__ = [
 
 class DrawLayer(Layer):
     '''
-    DRAW model from the paper:
+    Implements the draw model.
+
+    The input to the model should be flattened images. Set the original
+    image shape with img shp
+
+    nb. Glorot init will not work
+
+
+
+    REFS
     Gregor, K., Danihelka, I., Graves, A., & Wierstra, D. (2015).
     DRAW: A Recurrent Neural Network For Image Generation.
     arXiv Preprint arXiv:1502.04623.
     '''
-    #ini = init.Uniform((-0.05, 0.05))
     ini = init.Normal(std=0.01, avg=0.0)
     zero = init.Constant(0.)
     ortho = init.Orthogonal(np.sqrt(2))
@@ -60,37 +68,52 @@ class DrawLayer(Layer):
                  grad_clip_vals_out=[-1.0,1.0],
                  grad_clip_vals_in = [-10,10]
                     ):
-        '''
-        Initialize an LSTM layer.  For details on what the parameters mean, see
-        (7-11) from [#graves2014generating]_.
-
-        :parameters:
-            - input_layer : layers.Layer
-                Input to this recurrent layer
-            - num_units : int
-                Number of hidden units
-            - W_in_to_gates : function or np.ndarray or theano.shared
-            - W_hid_to_gates : function or np.ndarray or theano.shared
-            - W_cell_to_gates : function or np.ndarray or theano.shared
-            - b_gates : function or np.ndarray or theano.shared
-            - nonlinearity_ingate : function
-            - nonlinearity_forgetgate : function
-            - nonlinearity_modulationgate : function
-            - nonlinearity_outgate : function
-            - nonlinearity_out : function
-            - cell_init : function or np.ndarray or theano.shared
-                :math:`c_0`
-            - hid_init : function or np.ndarray or theano.shared
-                :math:`h_0`
-            - learn_init : boolean
-                If True, initial hidden values are learned
-            - peepholes : boolean
-                If True, the LSTM uses peephole connections.
-                When False, W_cell_to_ingate, W_cell_to_forgetgate and
-                W_cell_to_outgate are ignored.
-            - highforgetbias: if true forget gates will be initalized to
-            range [20, 25] i.e large positive value
-        '''
+        """
+        :param input_layer: Lasagne input layer
+        :param num_units_encoder_and_decoder:  Number of units in encoder and
+               decoder
+        :param glimpses: Number of times the networks sees and tries to
+                         reconstruct the image
+        :param dimz: Size of latent layer
+        :param imgshp: list, [height, width]
+        :param N_filters_read:  int
+        :param N_filters_write: int
+        :param W_x_to_gates:   function or np.ndarray or theano.shared
+        :param W_cell_to_gates: function or np.ndarray or theano.shared
+        :param b_gates: function or np.ndarray or theano.shared
+        :param W_read:  function or np.ndarray or theano.shared
+        :param b_read:  function or np.ndarray or theano.shared
+        :param W_write: function or np.ndarray or theano.shared
+        :param b_write: function or np.ndarray or theano.shared
+        :param nonlinearity_ingate: function
+        :param nonlinearity_forgetgate: function
+        :param nonlinearity_modulationgate: function
+        :param nonlinearity_outgate: function
+        :param nonlinearities_out_encoder: function
+        :param nonlinearities_out_decoder: function
+        :param cell_init: function or np.ndarray or theano.shared
+        :param hid_init:  function or np.ndarray or theano.shared
+        :param canvas_init:  function or np.ndarray or theano.shared
+        :param W_dec_to_canvas: function or np.ndarray or theano.shared
+        :param W_enc_to_mu_z:   function or np.ndarray or theano.shared
+        :param learn_hid_init:  boolean. If true cell and hid inits are learned
+        :param learn_canvas_init: boolean. Learn canvas init. To start with a
+                                 blank canvas set this to False
+        :param peepholes: boolean. LSTM with or without peepholes
+        :param x_distribution: str. Distribution of input data. Only supports
+                                'bernoulli'
+        :param qz_distribution: distribution of q(z|x), only supports
+                                'gaussianmarg'
+        :param pz_distribution: prior on z, p(z), only supports 'gaussianmarg'
+        :param read_init: None or nd.array of length 5 with initial values
+                          for reading operation. If you want to change this
+                          you should probly change it so the models sees a
+                          blurry version of the entire image.
+        :param n_classes: int, Number if classes. required if use_y=True
+        :param use_y: boolean. If true models p(x,y) else p(x)
+        :param grad_clip_vals_out: Clipping of gradients with grad_clip
+        :param grad_clip_vals_in: Clipping of gradients with grad_clip
+        """
 
         # Initialize parent layer
         super(DrawLayer, self).__init__(input_layer)
@@ -116,9 +139,9 @@ class DrawLayer(Layer):
             self.nonlinearity_outgate = nonlinearity_outgate
         if x_distribution not in ['bernoulli']:
             raise NotImplementedError
-        if pz_distribution not in ['gaussian', 'gaussianmarg']:
+        if pz_distribution not in ['gaussianmarg']:
             raise NotImplementedError
-        if qz_distribution not in ['gaussian', 'gaussianmarg']:
+        if qz_distribution not in ['gaussianmarg']:
             raise NotImplementedError
 
         if use_y is True and n_classes is None:
@@ -160,10 +183,14 @@ class DrawLayer(Layer):
             self.W_celldec_to_dec_gates = []
 
         # enc
-        self.b_gates_enc =  self.create_param(b_gates, [4*num_units_encoder_and_decoder])
+        self.b_gates_enc =  self.create_param(
+            b_gates, [4*num_units_encoder_and_decoder])
 
         # extra input applies to both encoder and decoder
         if self.use_y:
+            # if y is modelled its concatenated to the x input to the encoder
+            # and the z input to the decoder. We need to expand the
+            # corresponding matrices to handle this.
             extra_input = self.n_classes
         else:
             extra_input = 0
@@ -174,11 +201,13 @@ class DrawLayer(Layer):
              4*num_units_encoder_and_decoder])
 
         self.W_hid_to_gates_enc =  self.create_param(
-            W_x_to_gates, [num_units_encoder_and_decoder, 4*num_units_encoder_and_decoder])
+            W_x_to_gates, [num_units_encoder_and_decoder,
+                           4*num_units_encoder_and_decoder])
 
 
 
-        self.b_gates_dec =  self.create_param(b_gates, [4*num_units_encoder_and_decoder])
+        self.b_gates_dec =  self.create_param(
+            b_gates, [4*num_units_encoder_and_decoder])
         self.W_z_to_gates_dec =  self.create_param(
             W_x_to_gates, [dimz + extra_input, 4*num_units_encoder_and_decoder])
         self.W_hid_to_gates_dec =  self.create_param(
@@ -187,12 +216,16 @@ class DrawLayer(Layer):
 
         # Setup initial values for the cell and the lstm hidden units
         if self.learn_hid_init:
-            self.cell_init_enc = self.create_param(cell_init, (1, num_units_encoder_and_decoder))
-            self.hid_init_enc = self.create_param(hid_init, (1, num_units_encoder_and_decoder))
-            self.cell_init_dec = self.create_param(cell_init, (1, num_units_encoder_and_decoder))
-            self.hid_init_dec = self.create_param(hid_init, (1, num_units_encoder_and_decoder))
+            self.cell_init_enc = self.create_param(
+                cell_init, (1, num_units_encoder_and_decoder))
+            self.hid_init_enc = self.create_param(
+                hid_init, (1, num_units_encoder_and_decoder))
+            self.cell_init_dec = self.create_param(
+                cell_init, (1, num_units_encoder_and_decoder))
+            self.hid_init_dec = self.create_param(
+                hid_init, (1, num_units_encoder_and_decoder))
 
-        else:
+        else:  # init at zero + they will not be returned as parameters
             self.cell_init_enc = T.zeros((1, num_units_encoder_and_decoder))
             self.hid_init_enc = T.zeros((1, num_units_encoder_and_decoder))
             self.cell_init_dec = T.zeros((1, num_units_encoder_and_decoder))
@@ -204,15 +237,19 @@ class DrawLayer(Layer):
             self.canvas_init = T.zeros((1, num_inputs))
 
         # decoder to canvas
-        self.W_dec_to_canvas_patch = self.create_param(W_dec_to_canvas, (num_units_encoder_and_decoder, N_filters_write*N_filters_write))
+        self.W_dec_to_canvas_patch = self.create_param(
+            W_dec_to_canvas, (num_units_encoder_and_decoder,
+                              N_filters_write*N_filters_write))
 
 
         # variational weights
         # TODO: Make the sizes more flexible, they are not required to be equal
 
-        self.W_enc_to_z_mu = self.create_param(W_enc_to_mu_z, (self.num_units_encoder_and_decoder, self.dimz))
+        self.W_enc_to_z_mu = self.create_param(
+            W_enc_to_mu_z, (self.num_units_encoder_and_decoder, self.dimz))
         self.b_enc_to_z_mu = self.create_param(b_gates, (self.dimz))
-        self.W_enc_to_z_sigma = self.create_param(W_enc_to_mu_z, (self.num_units_encoder_and_decoder, self.dimz))
+        self.W_enc_to_z_sigma = self.create_param(
+            W_enc_to_mu_z, (self.num_units_encoder_and_decoder, self.dimz))
         self.b_enc_to_z_sigma = self.create_param(b_gates, (self.dimz))
 
         self.b_gates_enc.name = "DrawLayer: b_gates_enc"
@@ -233,6 +270,7 @@ class DrawLayer(Layer):
         self.hid_init_dec.name = "DrawLayer: hid_init_dec"
         self.canvas_init.name = "DrawLayer: canvas_init"
 
+        # init values for read operation.
         delta_read = 1  #
         gamma = 1.0
         sigma_read = 1.0
@@ -247,8 +285,10 @@ class DrawLayer(Layer):
             read_init = read_init.astype(theano.config.floatX)
         print("Read init is", read_init)
 
-        self.W_read = self.create_param(W_read, (num_units_encoder_and_decoder, 5))
-        self.W_write = self.create_param(W_write, (num_units_encoder_and_decoder, 5))
+        self.W_read = self.create_param(W_read,
+                                        (num_units_encoder_and_decoder, 5))
+        self.W_write = self.create_param(W_write,
+                                         (num_units_encoder_and_decoder, 5))
         self.b_read = self.create_param(b_read, (5))
         self.b_write = self.create_param(b_write, (5))
         self.read_init = self.create_param(read_init, (1,5))
@@ -350,23 +390,23 @@ class DrawLayer(Layer):
         '''
         return self.input_shape
 
-    def _lstm(self, gates, cell_previous,W_cell_to_gates,nonlinearity_out):
-        # Create single recurrent computation step function
-        # input_dot_W_n is the n'th row of the input dot W multiplication
-        # The step function calculates the following:
-        #
-        # i_t = \sigma(W_{xi}x_t + W_{hi}h_{t-1} + W_{ci}c_{t-1} + b_i)
-        # f_t = \sigma(W_{xf}x_t + W_{hf}h_{t-1} + W_{cf}c_{t-1} + b_f)
-        # c_t = f_tc_{t - 1} + i_t\tanh(W_{xc}x_t + W_{hc}h_{t-1} + b_c)
-        # o_t = \sigma(W_{xo}x_t + W_{ho}h_{t-1} + W_{co}c_t + b_o)
-        # h_t = o_t \tanh(c_t)
-        #
+    def _lstm(self, gates, cell_previous,W_cell_to_gates, nonlinearity_out):
+        # LSTM step
         # Gate names are taken from http://arxiv.org/abs/1409.2329 figure 1
         def slice_w(x, n):
-            return x[:, n*self.num_units_encoder_and_decoder:(n+1)*self.num_units_encoder_and_decoder]
+            start = n*self.num_units_encoder_and_decoder
+            stop = (n+1)*self.num_units_encoder_and_decoder
+            return x[:, start:stop]
 
         def slice_c(x, n):
-            return x[n*self.num_units_encoder_and_decoder:(n+1)*self.num_units_encoder_and_decoder]
+            start = n*self.num_units_encoder_and_decoder
+            stop = (n+1)*self.num_units_encoder_and_decoder
+            return x[start:stop]
+
+        def clip(x):
+            return theano.gradient.grad_clip(
+                x, self.grad_clip_vals_in[0], self.grad_clip_vals_in[1])
+
         ingate = slice_w(gates, 0)
         forgetgate = slice_w(gates, 1)
         modulationgate = slice_w(gates, 2)
@@ -378,27 +418,27 @@ class DrawLayer(Layer):
 
         if self.grad_clip_vals_in is not None:
             print('STEP: CLipping gradients IN', self.grad_clip_vals_in)
-            ingate = theano.gradient.grad_clip(ingate, self.grad_clip_vals_in[0], self.grad_clip_vals_in[1])
-            forgetgate = theano.gradient.grad_clip(forgetgate, self.grad_clip_vals_in[0], self.grad_clip_vals_in[1])
-            modulationgate = theano.gradient.grad_clip(modulationgate, self.grad_clip_vals_in[0], self.grad_clip_vals_in[1])
+            ingate = clip(ingate)
+            forgetgate = clip(forgetgate)
+            modulationgate = clip(modulationgate)
         ingate = self.nonlinearity_ingate(ingate)
         forgetgate = self.nonlinearity_forgetgate(forgetgate)
         modulationgate = self.nonlinearity_modulationgate(modulationgate)
         if self.grad_clip_vals_in is not None:
-            ingate = theano.gradient.grad_clip(ingate, self.grad_clip_vals_in[0], self.grad_clip_vals_in[1])
-            forgetgate = theano.gradient.grad_clip(forgetgate, self.grad_clip_vals_in[0], self.grad_clip_vals_in[1])
-            modulationgate = theano.gradient.grad_clip(modulationgate, self.grad_clip_vals_in[0], self.grad_clip_vals_in[1])
+            ingate = clip(ingate)
+            forgetgate = clip(forgetgate)
+            modulationgate = clip(modulationgate)
 
         cell = forgetgate*cell_previous + ingate*modulationgate
         if self.peepholes:
             outgate += cell*slice_c(W_cell_to_gates, 2)
 
         if self.grad_clip_vals_in is not None:
-            outgate = theano.gradient.grad_clip(outgate, self.grad_clip_vals_in[0], self.grad_clip_vals_in[1])
+            outgate = clip(outgate)
 
         outgate = self.nonlinearity_outgate(outgate)
         if self.grad_clip_vals_in is not None:
-            outgate = theano.gradient.grad_clip(outgate, self.grad_clip_vals_in[0], self.grad_clip_vals_in[1])
+            outgate = clip(outgate)
 
         hid = outgate*nonlinearity_out(cell)
         return [cell, hid]
@@ -474,7 +514,7 @@ class DrawLayer(Layer):
             # VARIATIONAL
             # eq 6
             mu_z = T.dot(hid_enc, W_enc_to_z_mu) + b_enc_to_z_mu
-            log_sigma_z = 0.5*T.dot(hid_enc, W_enc_to_z_sigma) + b_enc_to_z_sigma
+            log_sigma_z = 0.5*(T.dot(hid_enc, W_enc_to_z_sigma) + b_enc_to_z_sigma)
             z = mu_z + T.exp(log_sigma_z)*eps_n
 
             if self.use_y:
@@ -505,12 +545,17 @@ class DrawLayer(Layer):
             l_read = T.dot(hid_dec, W_read) + b_read
 
             # Todo: some of the (all?) gradient clips are redundant
-            if self.grad_clip_vals_out is not None:
-                print('STEP: CLipping gradients Out', self.grad_clip_vals_out)
-                cell_enc = theano.gradient.grad_clip(cell_enc, self.grad_clip_vals_out[0], self.grad_clip_vals_out[1])
-                hid_enc = theano.gradient.grad_clip(hid_enc, self.grad_clip_vals_out[0], self.grad_clip_vals_out[1])
-                cell_dec = theano.gradient.grad_clip(cell_dec, self.grad_clip_vals_out[0], self.grad_clip_vals_out[1])
-                hid_dec = theano.gradient.grad_clip(hid_dec, self.grad_clip_vals_out[0], self.grad_clip_vals_out[1])
+            # + I'm unsure if I use grad_clip correct and in correct places...
+            # The description of gradient clipping is in
+            # Generating sequences with recurrent neural networks
+            # section: 2.1 Long Short-Term Memory
+            #
+            #if self.grad_clip_vals_out is not None:
+            #    print('STEP: CLipping gradients Out', self.grad_clip_vals_out)
+            #    cell_enc = theano.gradient.grad_clip(cell_enc, self.grad_clip_vals_out[0], self.grad_clip_vals_out[1])
+            #    hid_enc = theano.gradient.grad_clip(hid_enc, self.grad_clip_vals_out[0], self.grad_clip_vals_out[1])
+            #    cell_dec = theano.gradient.grad_clip(cell_dec, self.grad_clip_vals_out[0], self.grad_clip_vals_out[1])
+            #    hid_dec = theano.gradient.grad_clip(hid_dec, self.grad_clip_vals_out[0], self.grad_clip_vals_out[1])
 
             return [cell_enc, hid_enc, cell_dec, hid_dec, canvas,
                     mu_z, log_sigma_z, z, l_read, l_write]
@@ -525,6 +570,7 @@ class DrawLayer(Layer):
         if theano.config.compute_test_value is 'off':
             eps = _srng.normal((self.glimpses,self.num_batch))
         else:
+            # for testing
             print("draw.py: is not using random generator"+"!#>"*30)
             eps = T.ones((self.glimpses,self.num_batch), theano.config.floatX) * 0.3
 
@@ -549,7 +595,8 @@ class DrawLayer(Layer):
         nonseqs_dec = [self.W_z_to_gates_dec, self.b_gates_dec,
                        self.W_hid_to_gates_dec,
                        self.W_celldec_to_dec_gates]
-        nonseqs_variational = [self.W_enc_to_z_mu, self.b_enc_to_z_mu, self.W_enc_to_z_sigma, self.b_enc_to_z_sigma]
+        nonseqs_variational = [self.W_enc_to_z_mu, self.b_enc_to_z_mu,
+                               self.W_enc_to_z_sigma, self.b_enc_to_z_sigma]
         nonseqs_other = [self.W_dec_to_canvas_patch, self.W_write, self.b_write]
         non_seqs = nonseqs_input +  nonseqs_enc + nonseqs_dec + nonseqs_variational \
                    + nonseqs_other
@@ -560,7 +607,8 @@ class DrawLayer(Layer):
                              go_backwards=False)[0]
 
 
-        cell_enc, hid_enc, cell_dec, hid_dec, canvas, mu_z, log_sigma_z, z, l_read, l_write = output_scan
+        cell_enc, hid_enc, cell_dec, hid_dec, canvas, mu_z, log_sigma_z, \
+        z, l_read, l_write = output_scan
 
         # because we model the output as bernoulli we take sigmoid to ensure
         # range (0,1)
@@ -596,7 +644,8 @@ class DrawLayer(Layer):
         return T.nnet.sigmoid(self.canvas.dimshuffle(1,0,2))
 
     def get_att_vals(self):
-        return self.att_vals_read.dimshuffle(1,0,2), self.att_vals_write.dimshuffle(1,0,2)
+        return self.att_vals_read.dimshuffle(1,0,2), \
+               self.att_vals_write.dimshuffle(1,0,2)
 
     def get_logx(self):
         return self.L_x / self.num_batch
@@ -608,13 +657,7 @@ class DrawLayer(Layer):
         '''
 
         Generate digits see http://arxiv.org/abs/1502.04623v1 section 2.3
-        :parameters:
-            - input : theano.TensorType
-                Symbolic input variable
 
-        :returns:
-            - layer_output : theano.TensorType
-                Symbolic output variable
         '''
 
         if y is None and self.use_y is True:
@@ -665,7 +708,8 @@ class DrawLayer(Layer):
             z_samples = _srng.normal((self.glimpses,n_digits,self.dimz))
         else:
             print("draw.py: is not using random generator"+"!#>"*30)
-            z_samples = T.ones((self.glimpses,n_digits,self.dimz), theano.config.floatX) * 0.3
+            z_samples = T.ones(
+                (self.glimpses,n_digits,self.dimz), theano.config.floatX) * 0.3
 
         if y is None:
             y = T.zeros((1))
@@ -678,10 +722,6 @@ class DrawLayer(Layer):
                  self.W_celldec_to_dec_gates,
                  self.W_dec_to_canvas_patch,
                  self.W_write, self.b_write]
-
-
-
-
 
         output_scan = theano.scan(step, sequences=seqs,
                              outputs_info=init,
