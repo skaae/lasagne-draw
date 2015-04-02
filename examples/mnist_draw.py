@@ -11,14 +11,8 @@ import theano.tensor as T
 import scipy.io as sio
 import numpy as np
 import lasagne
-from lasagne import LSTMTrainingFunctions
 from helper_functions import *
 from theano.sandbox.cuda.dnn import dnn_conv
-
-
-
-
-
 import theano
 theano.optimizer_including='cudnn'
 #theano.config.compute_test_value = 'raise'
@@ -116,7 +110,6 @@ for p in all_params:
     print i, p.name, p.shape
     i+=1
 print "len all params 22", len(all_params)
-LSTMTrainingFunctions.savemodel([all_params], 'model.pickle')
 print ""
 
 
@@ -154,30 +147,17 @@ eval_cost = theano.function([],outputs,
 
 
 n_batches_train = N_SAMPLES_TRAIN / BATCH_SIZE
-if USE_Y:
-    batchitertrain = batchiterator.BatchIterator(range(N_SAMPLES_TRAIN), BATCH_SIZE,
-                               data=(X_train, one_hot(y_train, N_CLASSES)))
-    batchitertrain = batchiterator.threaded_generator(batchitertrain,3)
+batchitertrain = batchiterator.BatchIterator(range(N_SAMPLES_TRAIN), BATCH_SIZE,
+                           data=(X_train))
+batchitertrain = batchiterator.threaded_generator(batchitertrain,3)
 
-    batchiterval = batchiterator.BatchIterator(range(X_valid.shape[0]), BATCH_SIZE,
-                               data=(X_valid, one_hot(y_valid, N_CLASSES)))
-    batchitertval = batchiterator.threaded_generator(batchiterval,3)
+batchiterval = batchiterator.BatchIterator(range(X_valid.shape[0]), BATCH_SIZE,
+                           data=(X_valid))
+batchitertval = batchiterator.threaded_generator(batchiterval,3)
 
-    batchitertest = batchiterator.BatchIterator(range(X_test.shape[0]), BATCH_SIZE,
-                               data=(X_test, one_hot(y_test, N_CLASSES)))
-    batchitertest = batchiterator.threaded_generator(batchitertest,3)
-else:
-    batchitertrain = batchiterator.BatchIterator(range(N_SAMPLES_TRAIN), BATCH_SIZE,
-                               data=(X_train))
-    batchitertrain = batchiterator.threaded_generator(batchitertrain,3)
-
-    batchiterval = batchiterator.BatchIterator(range(X_valid.shape[0]), BATCH_SIZE,
-                               data=(X_valid))
-    batchitertval = batchiterator.threaded_generator(batchiterval,3)
-
-    batchitertest = batchiterator.BatchIterator(range(X_test.shape[0]), BATCH_SIZE,
-                               data=(X_test))
-    batchitertest = batchiterator.threaded_generator(batchitertest,3)
+batchitertest = batchiterator.BatchIterator(range(X_test.shape[0]), BATCH_SIZE,
+                           data=(X_test))
+batchitertest = batchiterator.threaded_generator(batchitertest,3)
 n_batches_val = N_SAMPLES_VAL / BATCH_SIZE
 batches_val = [range(i * BATCH_SIZE, (i + 1) * BATCH_SIZE)
                for i in range(n_batches_val)]
@@ -202,9 +182,8 @@ canvas_out, att_read_out, att_write_out = [None, None,None,None],\
 with open("output.log", "w") as f:
     f.write("Experiment Log\n")
 
-from lasagne import ConfusionMatrix
 for epoch in range(NUM_EPOCHS):
-    conf = ConfusionMatrix.ConfusionMatrix(N_CLASSES)
+    conf = deepmodels.confusionmatrix.ConfusionMatrix(N_CLASSES)
     # single epoch training
     start_time = time.time()
     c = 0
@@ -248,9 +227,6 @@ for epoch in range(NUM_EPOCHS):
         print cc_val
         c_val_tot += cc_val*BATCH_SIZE
 
-
-
-    LSTMTrainingFunctions.savemodel([all_params], model_file_epoch)
 
     try:
         sio.savemat(folder+'canvas.mat',
