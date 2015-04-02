@@ -1,18 +1,13 @@
 #####
-
 from deepmodels import batchiterator
 import deepmodels
 import time
 import gzip
 import pickle
-import os
 import sys
-import theano.tensor as T
 import scipy.io as sio
-import numpy as np
 import lasagne
 from helper_functions import *
-from theano.sandbox.cuda.dnn import dnn_conv
 import theano
 theano.optimizer_including='cudnn'
 #theano.config.compute_test_value = 'raise'
@@ -95,15 +90,6 @@ sh_x = theano.shared(np.zeros((BATCH_SIZE, N_FEATURES), dtype='float32'))
 sh_y = theano.shared(np.zeros((BATCH_SIZE, N_CLASSES), dtype='float32'))
 
 
-if USE_Y:
-    sym_y_input = sym_y
-else:
-    sym_y_input = None
-
-
-
-
-
 all_params = lasagne.layers.get_all_params(l_vae)
 i = 0
 for p in all_params:
@@ -121,7 +107,7 @@ givens = [(sym_x, sh_x),
 import theano.gradient
 print "Calculating updates"
 x_clip = theano.gradient.grad_clip(sym_x, -10.0, 10.0) # see graves generating sequences
-cost = l_vae.get_cost(x_clip, y=sym_y_input, testing=False)
+cost = l_vae.get_cost(x_clip, testing=False)
 all_grads = theano.grad(cost,all_params)
 
 
@@ -246,6 +232,3 @@ for epoch in range(NUM_EPOCHS):
 
     with open("output.log", "a") as f:
         f.write(out_str + "\n")
-
-
-
