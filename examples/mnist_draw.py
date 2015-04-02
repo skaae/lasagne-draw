@@ -5,7 +5,6 @@ import time
 import gzip
 import pickle
 import sys
-import scipy.io as sio
 import lasagne
 from helper_functions import *
 import theano
@@ -59,7 +58,6 @@ for row in xx:
         print col,
     print ""
 
-
 # build model
 l_inp = lasagne.layers.InputLayer((BATCH_SIZE, N_FEATURES))
 l_vae = deepmodels.layers.DrawLayer(l_inp,
@@ -97,9 +95,6 @@ for p in all_params:
     i+=1
 print "len all params 22", len(all_params)
 print ""
-
-
-
 
 givens = [(sym_x, sh_x),
           (sym_y, sh_y)]
@@ -153,11 +148,6 @@ batches_test = [range(i * BATCH_SIZE, (i + 1) * BATCH_SIZE)
                for i in range(n_batches_test)]
 
 
-
-#ion() # enables interactive mode
-
-model_file = "model.pickle"
-
 print "Training"
 load_count = 0
 
@@ -176,7 +166,6 @@ for epoch in range(NUM_EPOCHS):
     dkl_tot = 0
     logx_tot = 0
     folder = str(epoch) + "/"
-    model_file_epoch = os.path.join(folder, model_file)
 
     if not os.path.exists(folder):
         os.makedirs(folder)
@@ -215,6 +204,7 @@ for epoch in range(NUM_EPOCHS):
 
 
     try:
+        import scipy.io as sio
         sio.savemat(folder+'canvas.mat',
                     {'canvas': np.vstack(canvas_out),
                      'att_read': np.vstack(att_read_out),
@@ -228,7 +218,6 @@ for epoch in range(NUM_EPOCHS):
     out_str = "EPOCH %i: Avg epoch cost %f KL %f logx %f cost val %f" % \
               (epoch, c/N_SAMPLES_TRAIN, dkl_tot/N_SAMPLES_TRAIN, logx_tot/N_SAMPLES_TRAIN, c_val_tot/X_valid.shape[0])
     print out_str
-
 
     with open("output.log", "a") as f:
         f.write(out_str + "\n")
