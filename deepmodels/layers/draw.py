@@ -4,7 +4,7 @@ import theano.tensor as T
 import numpy as np
 import lasagne.nonlinearities as nonlinearities
 import lasagne.init as init
-from .base import Layer
+from lasagne.layers.base import *
 from .. import logdists
 from theano.sandbox.rng_mrg import MRG_RandomStreams as RandomStreams
 from draw_helpers import *
