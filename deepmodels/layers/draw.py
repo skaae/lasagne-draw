@@ -5,7 +5,6 @@ import numpy as np
 import lasagne.nonlinearities as nonlinearities
 import lasagne.init as init
 from lasagne.layers.base import *
-from .. import logdists
 from theano.sandbox.rng_mrg import MRG_RandomStreams as RandomStreams
 from draw_helpers import *
 _srng = RandomStreams()
@@ -32,7 +31,7 @@ class DrawLayer(Layer):
     DRAW: A Recurrent Neural Network For Image Generation.
     arXiv Preprint arXiv:1502.04623.
     '''
-    ini = init.Normal(std=0.01, avg=0.0)
+    ini = init.Normal(std=0.01, mean=0.0)
     zero = init.Constant(0.)
     ortho = init.Orthogonal(np.sqrt(2))
     def __init__(self, input_layer, num_units_encoder_and_decoder,
@@ -167,14 +166,14 @@ class DrawLayer(Layer):
 
 
         # Input dimensionality is the output dimensionality of the input layer
-        num_batch, num_inputs = self.input_layer.get_output_shape()
+        num_batch, num_inputs = self.input_layer.output_shape
         self.num_batch = num_batch
         self.num_inputs = num_inputs
 
         if self.peepholes:
-            self.W_cellenc_to_enc_gates =  self.create_param(
+            self.W_cellenc_to_enc_gates =  self.add_param(
                 W_cell_to_gates, [3*num_units_encoder_and_decoder])
-            self.W_celldec_to_dec_gates =  self.create_param(
+            self.W_celldec_to_dec_gates =  self.add_param(
                 W_cell_to_gates, [3*num_units_encoder_and_decoder])
             self.W_cellenc_to_enc_gates.name = "DrawLayer: W_cellenc_to_enc_gates"
             self.W_celldec_to_dec_gates.name = "DrawLayer: W_celldec_to_dec_gates"
@@ -183,7 +182,7 @@ class DrawLayer(Layer):
             self.W_celldec_to_dec_gates = []
 
         # enc
-        self.b_gates_enc =  self.create_param(
+        self.b_gates_enc =  self.add_param(
             b_gates, [4*num_units_encoder_and_decoder])
 
         # extra input applies to both encoder and decoder
@@ -195,34 +194,34 @@ class DrawLayer(Layer):
         else:
             extra_input = 0
 
-        self.W_enc_gates =  self.create_param(
+        self.W_enc_gates =  self.add_param(
             W_x_to_gates,
             [2*N_filters_read*N_filters_read+num_units_encoder_and_decoder + extra_input,
              4*num_units_encoder_and_decoder])
 
-        self.W_hid_to_gates_enc =  self.create_param(
+        self.W_hid_to_gates_enc =  self.add_param(
             W_x_to_gates, [num_units_encoder_and_decoder,
                            4*num_units_encoder_and_decoder])
 
 
 
-        self.b_gates_dec =  self.create_param(
+        self.b_gates_dec =  self.add_param(
             b_gates, [4*num_units_encoder_and_decoder])
-        self.W_z_to_gates_dec =  self.create_param(
+        self.W_z_to_gates_dec =  self.add_param(
             W_x_to_gates, [dimz + extra_input, 4*num_units_encoder_and_decoder])
-        self.W_hid_to_gates_dec =  self.create_param(
+        self.W_hid_to_gates_dec =  self.add_param(
             W_x_to_gates, [num_units_encoder_and_decoder, 4*num_units_encoder_and_decoder])
 
 
         # Setup initial values for the cell and the lstm hidden units
         if self.learn_hid_init:
-            self.cell_init_enc = self.create_param(
+            self.cell_init_enc = self.add_param(
                 cell_init, (1, num_units_encoder_and_decoder))
-            self.hid_init_enc = self.create_param(
+            self.hid_init_enc = self.add_param(
                 hid_init, (1, num_units_encoder_and_decoder))
-            self.cell_init_dec = self.create_param(
+            self.cell_init_dec = self.add_param(
                 cell_init, (1, num_units_encoder_and_decoder))
-            self.hid_init_dec = self.create_param(
+            self.hid_init_dec = self.add_param(
                 hid_init, (1, num_units_encoder_and_decoder))
 
         else:  # init at zero + they will not be returned as parameters
@@ -232,12 +231,12 @@ class DrawLayer(Layer):
             self.hid_init_dec = T.zeros((1, num_units_encoder_and_decoder))
 
         if self.learn_canvas_init:
-            self.canvas_init = self.create_param(canvas_init, (1, num_inputs))
+            self.canvas_init = self.add_param(canvas_init, (1, num_inputs))
         else:
             self.canvas_init = T.zeros((1, num_inputs))
 
         # decoder to canvas
-        self.W_dec_to_canvas_patch = self.create_param(
+        self.W_dec_to_canvas_patch = self.add_param(
             W_dec_to_canvas, (num_units_encoder_and_decoder,
                               N_filters_write*N_filters_write))
 
@@ -245,12 +244,12 @@ class DrawLayer(Layer):
         # variational weights
         # TODO: Make the sizes more flexible, they are not required to be equal
 
-        self.W_enc_to_z_mu = self.create_param(
+        self.W_enc_to_z_mu = self.add_param(
             W_enc_to_mu_z, (self.num_units_encoder_and_decoder, self.dimz))
-        self.b_enc_to_z_mu = self.create_param(b_gates, (self.dimz))
-        self.W_enc_to_z_sigma = self.create_param(
+        self.b_enc_to_z_mu = self.add_param(b_gates, (self.dimz,))
+        self.W_enc_to_z_sigma = self.add_param(
             W_enc_to_mu_z, (self.num_units_encoder_and_decoder, self.dimz))
-        self.b_enc_to_z_sigma = self.create_param(b_gates, (self.dimz))
+        self.b_enc_to_z_sigma = self.add_param(b_gates, (self.dimz,))
 
         self.b_gates_enc.name = "DrawLayer: b_gates_enc"
         self.b_gates_dec.name = "DrawLayer: b_gates_dec"
@@ -285,13 +284,13 @@ class DrawLayer(Layer):
             read_init = read_init.astype(theano.config.floatX)
         print("Read init is", read_init)
 
-        self.W_read = self.create_param(W_read,
+        self.W_read = self.add_param(W_read,
                                         (num_units_encoder_and_decoder, 5))
-        self.W_write = self.create_param(W_write,
+        self.W_write = self.add_param(W_write,
                                          (num_units_encoder_and_decoder, 5))
-        self.b_read = self.create_param(b_read, (5))
-        self.b_write = self.create_param(b_write, (5))
-        self.read_init = self.create_param(read_init, (1,5))
+        self.b_read = self.add_param(b_read, (5,))
+        self.b_write = self.add_param(b_write, (5,))
+        self.read_init = self.add_param(read_init, (1,5))
         self.W_read.name = "DrawLayer: W_read"
         self.W_write.name = "DrawLayer: W_write"
         self.b_read.name = "DrawLayer: b_read"
